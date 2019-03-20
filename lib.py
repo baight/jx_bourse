@@ -11,7 +11,7 @@ welcome_text = '\
 * 命令：                                *\n\
 *     price/p: 添加 材料价格            *\n\
 *     formula/f: 添加 合成公式          *\n\
-*     show: 显示价格信息                *\n\
+*     show: 显示赢利/价格信息            *\n\
 *     help: 显示更详情使用信息          *\n\
 *     exit: 退出                        *\n\
 *****************************************'
@@ -23,8 +23,9 @@ help_text = '\
 # 添加合成公式 南红珠 = 南 + 红珠\n\
 --> f 南红珠 = 南 + 红珠*4 \n\
 \n\
-# 显示所有物品价格\n\
+# 显示可赢利材料\n\
 --> show\n\
+\n\
 --> show p \n\
 --> show price \n\
 \n\
@@ -91,16 +92,19 @@ def handleFormulaCommand(command: str):
     formula = equal_array[1].replace(" ", '')
     addFormula(name, formula)
 
+    printTextWithColor(name + ' = ' + formatFormula(formula) + " 已经添加", TextColor.Green)
 
 def handleShowCommand(command: str):
     command_array = command.split()
-    show = 'price'
+    show = None
 
     if len(command_array) >= 2:
         show = command_array[1]
 
     cursor = connect.cursor()
-    if show == 'p' or show == 'price':
+    if not show:
+        showEarningsPrice()
+    elif show == 'p' or show == 'price':
         sql = "select name, price from price"
         results = cursor.execute(sql, {})
         all_row = results.fetchall()
@@ -113,10 +117,10 @@ def handleShowCommand(command: str):
         handled_all_row = []
         for row in all_row:
             formula = row[1]  # str
-            if "+" in formula:
-                formula = " + ".join(formula.split('+'))
-            handled_all_row.append([row[0] + ' =', formula])
+            handled_all_row.append([row[0] + ' =', formatFormula(formula)])
         tablePrint(handled_all_row, ['name', 'formula'])
+    else:
+        printParameterError(command)
 
     cursor.close()
 
@@ -193,6 +197,7 @@ def tablePrint(array_array, title: list):
             printTextWithColor(row_string, TextColor.Cyan)
         row = row + 1
 
+
 def displayWidth(text: str) -> str:
     length = 0
     for c in text:
@@ -201,6 +206,117 @@ def displayWidth(text: str) -> str:
         else:
             length = length + 1
     return length
+
+
+def showEarningsPrice():
+    cursor = connect.cursor()
+    sql = "select name, formula from formula"
+    results = cursor.execute(sql, {})
+    all_row = results.fetchall()
+    for row in all_row:
+        name = row[0]
+        formula = row[1]
+        checkIsEarngings(name, formula)
+    cursor.close()
+
+
+def checkIsEarngings(name: str, formula: str) -> bool:
+    is_info_enough = True
+    my_price = queryPrice(name)
+    if my_price is None:
+        is_info_enough = False
+
+    formula_info_array = []  # {name: xxx, count:xxx}
+    for component in formula.split("+"):
+        info = component.split("*")
+        if len(info) == 1:
+            formula_info_array.append({"name": info[0], "count": 1})
+        elif len(info) == 2:
+            i0 = info[0]
+            i1 = info[1]
+            if i1.isnumeric():
+                formula_info_array.append({"name": i0, "count": int(i1)})
+            elif i0.isnumeric():
+                formula_info_array.append({"name": i1, "count": int(i0)})
+
+    cost = 0
+    for formula_info in formula_info_array:
+        cost_name = formula_info["name"]
+        cost_count = formula_info["count"]
+        cost_price = queryPrice(cost_name)
+        if cost_price is None:
+            formula_info["lost"] = True
+            is_info_enough = False
+        else:
+            formula_info["price"] = cost_price
+            cost = cost + cost_price * cost_count
+
+    if is_info_enough and my_price > cost:
+        title_array = ["name", 'price', 'cost', 'profit', "|"]
+        row_info = [name, str(my_price), str(cost), str(my_price-cost), "|"]
+
+        for formula_info in formula_info_array:
+            cost_count = formula_info["count"]
+            cost_name = formula_info["name"]
+            cost_price = formula_info["price"]
+            if cost_count > 1:
+                title_array.append(cost_name + "*" + str(cost_count))
+            else:
+                title_array.append(cost_name)
+            row_info.append(str(cost_price))
+
+        tablePrint([row_info], title_array)
+
+    if not is_info_enough:
+        color_text = ColorText()
+        color_text.appendColorText("信息不够完整: ", TextColor.Red)
+        if my_price is None:
+            color_text.appendColorText(name, TextColor.Red)
+        else:
+            color_text.appendColorText(name)
+        color_text.appendColorText(" = ")
+
+        index = 0
+        for formula_info in formula_info_array:
+            if index != 0:
+                color_text.appendColorText(" + ")
+            cost_count = formula_info["count"]
+            cost_name = formula_info["name"]
+            if cost_count > 1:
+                if "lost" in formula_info:
+                    color_text.appendColorText(cost_name + "*" + str(cost_count), TextColor.Yellow)
+                else:
+                    color_text.appendColorText(cost_name + "*" + str(cost_count))
+            else:
+                if "lost" in formula_info:
+                    color_text.appendColorText(cost_name, TextColor.Yellow)
+                else:
+                    color_text.appendColorText(cost_name)
+
+            index = index + 1
+        printColorText(color_text)
+
+
+
+def queryPrice(name: str) -> int :
+    cursor = connect.cursor()
+    sql = '''select price from price where name = :name '''
+    results = cursor.execute(sql, {'name': name})
+    all_row = results.fetchall()
+    cursor.close()
+    if len(all_row) > 0:
+        price = all_row[0][0]
+        return price
+    else:
+        return None
+
+
+def formatFormula(formula: str) -> str:
+    if "+" in formula:
+        return " + ".join(formula.split('+'))
+    else:
+        return formula
+
 
 # ---------------------数据库-------------------------
 
@@ -214,11 +330,13 @@ def addMaterialsPrice(materials: str, price: float):
     results = cursor.execute(sql, {'materials': materials})
     count = results.fetchall()[0][0]
     if count > 0:
-        sql = ''' update price set price = ':price' where name = ':materials' '''
+        sql = ''' update price set price = :price where name = :materials '''
         cursor.execute(sql, {'materials': materials, 'price': price})
+        print("++++++")
     else:
         sql = ''' insert into price (name, price) values (:materials, :price)'''
         cursor.execute(sql, {'materials': materials, 'price': price})
+        print("----")
     connect.commit()
     cursor.close()
 
