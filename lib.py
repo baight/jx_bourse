@@ -134,9 +134,9 @@ def handleShowCommand(command: str):
         all_row = results.fetchall()
         handled_all_row = []
         for row in all_row:
-            formula = row[1]  # str
-            handled_all_row.append([row[0] + ' =', formatFormula(formula)])
-        tablePrint(handled_all_row, ['name', 'formula'])
+            name = row[0]
+            formula = row[1]
+            showProfitInfo(name, formula)
     else:
         printParameterError(command)
 
@@ -235,15 +235,14 @@ def showEarningsPrice():
     for row in all_row:
         name = row[0]
         formula = row[1]
-        checkIsEarngings(name, formula)
+        showProfitInfo(name, formula, True)
     cursor.close()
 
 
-def checkIsEarngings(name: str, formula: str) -> bool:
-    is_info_enough = True
+def showProfitInfo(name: str, formula: str = None, only_show_profit = False):
     my_price = queryPrice(name)
-    if my_price is None:
-        is_info_enough = False
+    if only_show_profit and my_price is None:
+        return
 
     formula_info_array = []  # {name: xxx, count:xxx}
     for component in formula.split("+"):
@@ -263,57 +262,39 @@ def checkIsEarngings(name: str, formula: str) -> bool:
         cost_name = formula_info["name"]
         cost_count = formula_info["count"]
         cost_price = queryPrice(cost_name)
+        formula_info["price"] = cost_price
         if cost_price is None:
-            formula_info["lost"] = True
-            is_info_enough = False
+            cost = None
         else:
-            formula_info["price"] = cost_price
-            cost = cost + cost_price * cost_count
+            if cost is not None and cost_price is not None:
+                cost = cost + cost_price*cost_count
+    if cost is not None:
+        cost = round(cost, 2)
 
-    if is_info_enough and my_price > cost:
-        title_array = ["name", 'price', 'cost', 'profit', "|"]
-        row_info = [name, str(my_price), str(cost), str(my_price-cost), "|"]
+    title_array = ["name", 'price', 'cost', 'profit', "|"]
+    profit = None
+    if my_price is not None and cost is not None:
+        profit = round(my_price - cost, 2)
 
-        for formula_info in formula_info_array:
-            cost_count = formula_info["count"]
-            cost_name = formula_info["name"]
-            cost_price = formula_info["price"]
-            if cost_count > 1:
-                title_array.append(cost_name + "*" + str(cost_count))
-            else:
-                title_array.append(cost_name)
-            row_info.append(str(cost_price))
+    if only_show_profit:
+        if profit is None:
+            return
+        if profit <= 0:
+            return
 
-        tablePrint([row_info], title_array)
+    row_info = [name, str(my_price), str(cost), str(profit), "|"]
 
-    if not is_info_enough:
-        color_text = ColorText()
-        color_text.appendColorText("信息不够完整: ", TextColor.Red)
-        if my_price is None:
-            color_text.appendColorText(name, TextColor.Red)
+    for formula_info in formula_info_array:
+        cost_count = formula_info["count"]
+        cost_name = formula_info["name"]
+        cost_price = formula_info["price"]
+        if cost_count > 1:
+            title_array.append(cost_name + "*" + str(cost_count))
         else:
-            color_text.appendColorText(name)
-        color_text.appendColorText(" = ")
+            title_array.append(cost_name)
+        row_info.append(str(cost_price))
 
-        index = 0
-        for formula_info in formula_info_array:
-            if index != 0:
-                color_text.appendColorText(" + ")
-            cost_count = formula_info["count"]
-            cost_name = formula_info["name"]
-            if cost_count > 1:
-                if "lost" in formula_info:
-                    color_text.appendColorText(cost_name + "*" + str(cost_count), TextColor.Yellow)
-                else:
-                    color_text.appendColorText(cost_name + "*" + str(cost_count))
-            else:
-                if "lost" in formula_info:
-                    color_text.appendColorText(cost_name, TextColor.Yellow)
-                else:
-                    color_text.appendColorText(cost_name)
-
-            index = index + 1
-        printColorText(color_text)
+    tablePrint([row_info], title_array)
 
 
 
