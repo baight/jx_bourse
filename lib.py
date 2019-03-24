@@ -65,7 +65,10 @@ def handlePriceCommand(command: str):
         printParameterError(command)
         return
 
-    if not command_array[2].isnumeric():
+    price_str = command_array[2]
+    try:
+        price = float(price_str)
+    except ValueError:    
         printParameterError(command)
         return
 
