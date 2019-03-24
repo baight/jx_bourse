@@ -11,7 +11,7 @@ welcome_text = '\
 * 命令：                                *\n\
 *     price/p: 添加 材料价格            *\n\
 *     formula/f: 添加 合成公式          *\n\
-*     show: 显示赢利/价格信息            *\n\
+*     show: 显示赢利/价格信息           *\n\
 *     help: 显示更详情使用信息          *\n\
 *     exit: 退出                        *\n\
 *****************************************'
@@ -109,9 +109,24 @@ def handleShowCommand(command: str):
         results = cursor.execute(sql, {})
         all_row = results.fetchall()
         tablePrint(all_row, ['name', 'price'])
-
     elif show == 'f' or show == 'formula':
         sql = "select name, formula from formula"
+        results = cursor.execute(sql, {})
+        all_row = results.fetchall()
+        handled_all_row = []
+        for row in all_row:
+            formula = row[1]  # str
+            handled_all_row.append([row[0] + ' =', formatFormula(formula)])
+        tablePrint(handled_all_row, ['name', 'formula'])
+    elif show is not None:
+        # price 
+        sql = "select name, price from price where name like '%%%s%%'" % (show)
+        results = cursor.execute(sql, {})
+        all_row = results.fetchall()
+        tablePrint(all_row, ['name', 'price'])
+
+        # formula
+        sql = "select name, formula from formula where name like '%%%s%%'" % (show)
         results = cursor.execute(sql, {})
         all_row = results.fetchall()
         handled_all_row = []
@@ -123,6 +138,7 @@ def handleShowCommand(command: str):
         printParameterError(command)
 
     cursor.close()
+
 
 def handleDeleteCommand(command: str):
     command_array = command.split()
@@ -332,11 +348,9 @@ def addMaterialsPrice(materials: str, price: float):
     if count > 0:
         sql = ''' update price set price = :price where name = :materials '''
         cursor.execute(sql, {'materials': materials, 'price': price})
-        print("++++++")
     else:
         sql = ''' insert into price (name, price) values (:materials, :price)'''
         cursor.execute(sql, {'materials': materials, 'price': price})
-        print("----")
     connect.commit()
     cursor.close()
 
@@ -346,7 +360,7 @@ def addFormula(name: str, formula: float):
     results = cursor.execute(sql, {'name': name})
     count = results.fetchall()[0][0]
     if count > 0:
-        sql = ''' update formula set formula = ':formula' where name = ':name' '''
+        sql = ''' update formula set formula = :formula where name = :name '''
         cursor.execute(sql, {'name': name, 'formula': formula})
     else:
         sql = ''' insert into formula (name, formula) values (:name, :formula)'''
