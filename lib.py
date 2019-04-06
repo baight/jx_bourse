@@ -121,6 +121,17 @@ def handleShowCommand(command: str):
             formula = row[1]  # str
             handled_all_row.append([row[0] + ' =', formatFormula(formula)])
         tablePrint(handled_all_row, ['name', 'formula'])
+    elif show == 'h' or show == 'history':
+        name = None
+        if len(command_array) >= 3:
+            name = command_array[2]
+        if name:
+            sql = "select rowid, name, time, price from history where name = '%s'" % (name)
+        else:
+            sql = "select rowid, name, time, price from history"
+        results = cursor.execute(sql)
+        all_row = results.fetchall()
+        tablePrint(all_row, ['id', 'name', 'time', 'price'])
     elif show is not None:
         # price 
         sql = "select name, price from price where name like '%%%s%%'" % (show)
@@ -150,19 +161,24 @@ def handleDeleteCommand(command: str):
         return
 
     delete = command_array[1]
-    name = command_array[2]
+    value = command_array[2]
 
     cursor = connect.cursor()
     if delete == 'p' or delete == 'price':
         sql = "DELETE FROM price WHERE name = :name"
-        cursor.execute(sql, {'name': name})
+        cursor.execute(sql, {'name': value})
         connect.commit()
-        printTextWithColor(name + ' 已经删除', TextColor.Red)
+        printTextWithColor(value + ' 已经删除', TextColor.Red)
     elif delete == 'f' or delete == 'formula':
         sql = "DELETE FROM formula WHERE name = :name"
-        cursor.execute(sql, {'name': name})
+        cursor.execute(sql, {'name': value})
         connect.commit()
-        printTextWithColor(name + ' 已经删除', TextColor.Red)
+        printTextWithColor(value + ' 已经删除', TextColor.Red)
+    elif delete == 'h' or delete == 'history':
+        sql = "DELETE FROM history WHERE rowid = '%s'" % (value)
+        cursor.execute(sql, )
+        connect.commit()
+        printTextWithColor(value + ' 已经删除', TextColor.Red)
     else:
         printParameterError(command)
     cursor.close()
@@ -335,6 +351,11 @@ def addMaterialsPrice(materials: str, price: float):
     else:
         sql = ''' insert into price (name, price) values (:materials, :price)'''
         cursor.execute(sql, {'materials': materials, 'price': price})
+
+    # history
+    sql = 'insert into history (name, price) values ("%s", "%s")' % (materials, price)
+    cursor.execute(sql)
+
     connect.commit()
     cursor.close()
 
@@ -372,6 +393,39 @@ except Exception as e:
 finally:
     _cursor.close()
     connect.rollback()
+
+_cursor = connect.cursor()
+try:
+    _sql = "create table history (name text, time datetime not NULL DEFAULT (datetime(CURRENT_TIMESTAMP, 'localtime')), price text, other text)"
+    _cursor.execute(_sql)
+except Exception as e:
+    pass
+finally:
+    _cursor.close()
+    connect.rollback()
+
+_cursor = connect.cursor()
+try:
+    _sql = "CREATE INDEX name_time ON history (name ASC, time DESC)"
+    _cursor.execute(_sql)
+except Exception as e:
+    pass
+finally:
+    _cursor.close()
+    connect.rollback()
+
+# _cursor = connect.cursor()
+# try:
+#     _sql = "drop table history"
+#     _cursor.execute(_sql)
+# except Exception as e:
+#     pass
+# finally:
+#     _cursor.close()
+#     connect.rollback()
+
+
+
 
 
 
