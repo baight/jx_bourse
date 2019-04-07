@@ -1,5 +1,9 @@
 import sys,os,enum
+import platform
 
+_colorPrintEnable = True 
+if(platform.system() == 'Windows'):
+	_colorPrintEnable = False
 
 class TextColor(enum.Enum):
     Default = '0'
@@ -44,6 +48,9 @@ class ColorTextComponent(object):
     def getPrintString(self) -> str:
         if len(self.text) <= 0:
             return ''
+
+        if not _colorPrintEnable:
+        	return self.text
 
         if self.color == TextColor.Default and self.backgroundColor == BackgroundColor.Default and self.displayMode == DisplayMode.Default:
             return self.text
