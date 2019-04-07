@@ -7,8 +7,6 @@ from color_print import *
 curDir = sys.path[0];
 os.chdir(curDir)
 
-print(curDir)
-
 printTextWithColor(welcome_text, TextColor.Green)
 
 while True:
@@ -19,6 +17,8 @@ while True:
         handlePriceCommand(command)
     elif command.startswith('f ') or command.startswith('formula '):
         handleFormulaCommand(command)
+    elif command.startswith('h ') or command.startswith('history '):
+        handleHistoryCommand(command)
     elif command.startswith('delete '):
         handleDeleteCommand(command)
     elif command == '':
