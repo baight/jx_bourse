@@ -154,6 +154,23 @@ def handleShowCommand(command: str):
     cursor.close()
 
 
+def handleHistoryCommand(command: str):
+    command_array = command.split()
+
+    if len(command_array) < 2:
+        printParameterError(command)
+        return
+
+    value = command_array[1]
+    cursor = connect.cursor()
+    sql = "select rowid, name, time, price from history where name like '%%%s%%' order by time desc" % (value)
+    results = cursor.execute(sql)
+    all_row = results.fetchall()
+    tablePrint(all_row, ['id', 'name', 'time', 'price'])
+
+    cursor.close()
+
+
 def handleDeleteCommand(command: str):
     command_array = command.split()
     if len(command_array) != 3:
