@@ -276,6 +276,9 @@ def showProfitInfo(name: str, formula: str = None, only_show_profit = False):
     my_price = queryPrice(name)
     if only_show_profit and my_price is None:
         return
+    fee = 0
+    if my_price:
+        fee = round(my_price*0.05, 2)
 
     formula_info_array = []  # {name: xxx, count:xxx}
     for component in formula.split("+"):
@@ -304,10 +307,10 @@ def showProfitInfo(name: str, formula: str = None, only_show_profit = False):
     if cost is not None:
         cost = round(cost, 2)
 
-    title_array = ["name", 'price', 'cost', 'profit', "|"]
+    title_array = ["name", 'price', 'cost', 'fee', 'profit', "|"]
     profit = None
     if my_price is not None and cost is not None:
-        profit = round(my_price - cost, 2)
+        profit = round(my_price - cost - fee, 2)
 
     if only_show_profit:
         if profit is None:
@@ -315,7 +318,7 @@ def showProfitInfo(name: str, formula: str = None, only_show_profit = False):
         if profit <= 0:
             return
 
-    row_info = [name, str(my_price), str(cost), str(profit), "|"]
+    row_info = [name, str(my_price), str(cost), str(fee), str(profit), "|"]
 
     for formula_info in formula_info_array:
         cost_count = formula_info["count"]
